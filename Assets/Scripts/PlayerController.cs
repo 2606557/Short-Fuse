@@ -4,13 +4,16 @@ using UnityEngine.InputSystem;
 public class PlayerController : MonoBehaviour
 {
     // REFERENCES
-
     [SerializeField] private InputActionReference moveAction;
+    [SerializeField] private InputActionReference jumpAction;
     private Rigidbody2D rb;
+    [SerializeField] private Transform groundCheck;
+    [SerializeField] private LayerMask groundLayer;
 
     // PLAYER INPUT
-
     private float moveInput;
+    private bool jumpRequested = false;
+    private bool grounded;
 
     // MOVEMENT SETTINGS
     [Range(1f, 12f)]
@@ -20,6 +23,15 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float acceleration = 40f;
 
     private float currentSpeed;
+
+    [Range(1f, 20f)]
+    [SerializeField] private float jumpForce = 10f;
+
+    [Range(0.05f, 0.5f)]
+    [SerializeField] private float groundCheckRadius = 0.15f;
+
+    [Range(0f, 1f)]
+    [SerializeField] private float airControl = 0.3f;
 
     // SETUP
 
@@ -31,11 +43,17 @@ public class PlayerController : MonoBehaviour
     private void OnEnable()
     {
         moveAction.action.Enable();
+        jumpAction.action.Enable();
+
+        jumpAction.action.performed += OnJump;
     }
 
     private void OnDisable()
     {
         moveAction.action.Disable();
+        jumpAction.action.Disable();
+
+        jumpAction.action.performed -= OnJump;
     }
 
 
@@ -48,9 +66,10 @@ public class PlayerController : MonoBehaviour
     // MOVEMENT
     private void FixedUpdate()
     {
-        
+        CheckGround();
         HandleAcceleration();
         HandleMovement();
+        HandleJump();
     }
 
     // HANDLE ACCELLERATION
@@ -59,8 +78,10 @@ public class PlayerController : MonoBehaviour
         // Set "Target speed" (Ideal speed if it were in vacuum)
         float targetSpeed = moveInput * moveSpeed;
 
+        float currentAcceleration = CalculateAcceleration();
+
         // Calculate currentspeed based on target speed but with acceleration damnpening)
-        currentSpeed = Mathf.MoveTowards(rb.linearVelocity.x, targetSpeed, acceleration * Time.fixedDeltaTime);
+        currentSpeed = Mathf.MoveTowards(rb.linearVelocity.x, targetSpeed, currentAcceleration * Time.fixedDeltaTime);
     }
 
 
@@ -68,5 +89,55 @@ public class PlayerController : MonoBehaviour
     private void HandleMovement()
     {
         rb.linearVelocity = new Vector2(currentSpeed, rb.linearVelocity.y);
+    }
+
+    // HANDLE JUMPING
+    private void OnJump(InputAction.CallbackContext context)
+    {
+        jumpRequested = true;
+    }
+
+    private void HandleJump()
+    {
+        if (jumpRequested && grounded)
+        {
+            rb.AddForce(Vector2.up * jumpForce, ForceMode2D.Impulse);
+        }
+
+        jumpRequested = false;
+    }
+
+    // CHECK GROUNDING
+
+    private void CheckGround()
+    {
+        grounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer) != null;
+    }
+
+    // CALCULATE ACCELERATION
+    private float CalculateAcceleration()
+    {
+        if (grounded) // check if grounded
+        {
+            return acceleration; // just use normal acceleration
+        }
+
+        return acceleration * airControl; // if airborne, use acceleration times by a percentage (30%)
+    }
+
+
+
+
+
+
+    // GIZMOS AND DEBUGS
+
+    private void OnDrawGizmosSelected()
+    {
+        if (groundCheck == null) return;
+
+        Gizmos.color = Color.green;
+
+        Gizmos.DrawWireSphere(groundCheck.position, groundCheckRadius);
     }
 }
