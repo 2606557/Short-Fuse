@@ -6,9 +6,14 @@ public class PlayerController : MonoBehaviour
     // REFERENCES
     [SerializeField] private InputActionReference moveAction;
     [SerializeField] private InputActionReference jumpAction;
+    [SerializeField] private InputActionReference bombAction;
     private Rigidbody2D rb;
     [SerializeField] private Transform groundCheck;
     [SerializeField] private LayerMask groundLayer;
+
+    // BOMB REFERENCES
+    [SerializeField] private GameObject bombPrefab;
+    [SerializeField] private Transform bombSpawnPoint;
 
     // PLAYER INPUT
     private float moveInput;
@@ -43,17 +48,26 @@ public class PlayerController : MonoBehaviour
     private void OnEnable()
     {
         moveAction.action.Enable();
-        jumpAction.action.Enable();
 
+
+        jumpAction.action.Enable();
         jumpAction.action.performed += OnJump;
+
+        bombAction.action.Enable();
+        bombAction.action.performed += OnBomb;
     }
 
     private void OnDisable()
     {
         moveAction.action.Disable();
-        jumpAction.action.Disable();
+
 
         jumpAction.action.performed -= OnJump;
+        jumpAction.action.Disable();
+
+        
+        bombAction.action.performed -= OnBomb;
+        bombAction.action.Disable();
     }
 
 
@@ -125,6 +139,16 @@ public class PlayerController : MonoBehaviour
         return acceleration * airControl; // if airborne, use acceleration times by a percentage (30%)
     }
 
+    // BOMBS
+    private void OnBomb(InputAction.CallbackContext context)
+    {
+        PlaceBomb();
+    }
+
+    private void PlaceBomb()
+    {
+        Instantiate(bombPrefab, bombSpawnPoint.position, Quaternion.identity);
+    }
 
 
 
