@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using TMPro;
 
 public class PlayerController : MonoBehaviour
 {
@@ -10,10 +11,17 @@ public class PlayerController : MonoBehaviour
     private Rigidbody2D rb;
     [SerializeField] private Transform groundCheck;
     [SerializeField] private LayerMask groundLayer;
+    [SerializeField] private TMP_Text bombCounterText;
 
     // BOMB REFERENCES
     [SerializeField] private GameObject bombPrefab;
     [SerializeField] private Transform bombSpawnPoint;
+
+    // BOMB INVENTORY
+    [Range(1, 10)]
+    [SerializeField] private int maxBombs = 3;
+
+    private int currentBombs;
 
     // PLAYER INPUT
     private float moveInput;
@@ -43,6 +51,9 @@ public class PlayerController : MonoBehaviour
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
+
+        currentBombs = maxBombs;
+        UpdateBombUI();
     }
 
     private void OnEnable()
@@ -147,7 +158,33 @@ public class PlayerController : MonoBehaviour
 
     private void PlaceBomb()
     {
+        Debug.Log("Bombs Requested");
+        if (currentBombs <= 0) // If we have no bombs left, dont run the rest of this method
+        {
+            Debug.LogWarning("Out of Bombs! Please Collect More!");
+            return;
+        }
+
+        {
+            
+        }
         Instantiate(bombPrefab, bombSpawnPoint.position, Quaternion.identity);
+
+        currentBombs--;
+        UpdateBombUI();
+
+        Debug.Log("Bombs remaining: " +  currentBombs);
+    }
+
+    public void RefillBombs()
+    {
+        currentBombs = maxBombs;
+        UpdateBombUI();
+    }
+
+    private void UpdateBombUI()
+    {
+        bombCounterText.text = "BOMBS: " + currentBombs;
     }
 
 
