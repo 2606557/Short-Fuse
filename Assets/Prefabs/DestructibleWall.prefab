@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 3075650586371382170}
   - component: {fileID: 5237989132691216203}
   - component: {fileID: 7685023194472650405}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: DestructibleWall
   m_TagString: Untagged
   m_Icon: {fileID: 0}
