@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+using TMPro;
+
 public class PlayerController : MonoBehaviour
 {
     // REFERENCES
@@ -43,6 +45,13 @@ public class PlayerController : MonoBehaviour
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
+
+        currentBombs = maxBombs;
+    }
+
+    private void Start()
+    {
+        UpdateBombUI();
     }
 
     private void OnEnable()
@@ -147,7 +156,37 @@ public class PlayerController : MonoBehaviour
 
     private void PlaceBomb()
     {
-        Instantiate(bombPrefab, bombSpawnPoint.position, Quaternion.identity);
+        if (currentBombs <= 0)
+        {
+            return;
+        }
+
+        Instantiate(
+            bombPrefab, 
+            bombSpawnPoint.position,
+            Quaternion.identity
+            );
+
+        currentBombs--;
+
+        UpdateBombUI();
+
+        Debug.Log("Bombs Remaining: " + currentBombs);
+    }
+
+    // BOMB INVENTORY
+
+    [Range(1, 10)]
+    [SerializeField] private int maxBombs = 3;
+    private int currentBombs;
+
+    [SerializeField] private TMP_Text bombCounterText;
+
+    // USER INTERFACE
+
+    private void UpdateBombUI()
+    {
+        bombCounterText.text = "BOMBS: " + currentBombs;
     }
 
 
