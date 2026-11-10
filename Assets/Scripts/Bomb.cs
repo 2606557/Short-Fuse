@@ -63,6 +63,12 @@ public class Bomb : MonoBehaviour
 
         foreach (Collider2D hit in hits)
         {
+            Destructible destructible = hit.GetComponent<Destructible>();
+            if (destructible != null)
+            {
+                destructible.DestroyObject();
+            }
+
             // Find the rigid body to target
             Rigidbody2D targetRB = hit.attachedRigidbody;
 
