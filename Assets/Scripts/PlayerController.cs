@@ -1,3 +1,4 @@
+
 using UnityEngine;
 using UnityEngine.InputSystem;
 using TMPro;
@@ -5,30 +6,42 @@ using TMPro;
 public class PlayerController : MonoBehaviour
 {
     // REFERENCES
+
     [SerializeField] private InputActionReference moveAction;
     [SerializeField] private InputActionReference jumpAction;
     [SerializeField] private InputActionReference bombAction;
+
     private Rigidbody2D rb;
+
     [SerializeField] private Transform groundCheck;
     [SerializeField] private LayerMask groundLayer;
     [SerializeField] private TMP_Text bombCounterText;
 
+
     // BOMB REFERENCES
+
     [SerializeField] private GameObject bombPrefab;
     [SerializeField] private Transform bombSpawnPoint;
 
+
     // BOMB INVENTORY
+
     [Range(1, 10)]
     [SerializeField] private int maxBombs = 3;
 
     private int currentBombs;
 
+
     // PLAYER INPUT
+
     private float moveInput;
     private bool jumpRequested = false;
     private bool grounded;
+    private bool isDead;
+
 
     // MOVEMENT SETTINGS
+
     [Range(1f, 12f)]
     [SerializeField] private float moveSpeed = 6f;
 
@@ -46,6 +59,7 @@ public class PlayerController : MonoBehaviour
     [Range(0f, 1f)]
     [SerializeField] private float airControl = 0.3f;
 
+
     // SETUP
 
     private void Awake()
@@ -53,13 +67,18 @@ public class PlayerController : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
 
         currentBombs = maxBombs;
+
+        if (GameManager.Instance != null)
+        {
+            currentBombs = GameManager.Instance.GetBombCount();
+        }
+
         UpdateBombUI();
     }
 
     private void OnEnable()
     {
         moveAction.action.Enable();
-
 
         jumpAction.action.Enable();
         jumpAction.action.performed += OnJump;
@@ -72,53 +91,70 @@ public class PlayerController : MonoBehaviour
     {
         moveAction.action.Disable();
 
-
         jumpAction.action.performed -= OnJump;
         jumpAction.action.Disable();
 
-        
         bombAction.action.performed -= OnBomb;
         bombAction.action.Disable();
     }
 
 
     // INPUT
+
     private void Update()
     {
+        if (isDead) return;
+
         moveInput = moveAction.action.ReadValue<Vector2>().x;
     }
 
+
     // MOVEMENT
+
     private void FixedUpdate()
     {
+        if (isDead) return;
+
         CheckGround();
         HandleAcceleration();
         HandleMovement();
         HandleJump();
     }
 
+
     // HANDLE ACCELLERATION
+
     private void HandleAcceleration()
     {
-        // Set "Target speed" (Ideal speed if it were in vacuum)
         float targetSpeed = moveInput * moveSpeed;
 
         float currentAcceleration = CalculateAcceleration();
 
-        // Calculate currentspeed based on target speed but with acceleration damnpening)
-        currentSpeed = Mathf.MoveTowards(rb.linearVelocity.x, targetSpeed, currentAcceleration * Time.fixedDeltaTime);
+        currentSpeed = Mathf.MoveTowards(
+            rb.linearVelocity.x,
+            targetSpeed,
+            currentAcceleration * Time.fixedDeltaTime
+        );
     }
 
 
     // HANDLE MOVEMENT
+
     private void HandleMovement()
     {
-        rb.linearVelocity = new Vector2(currentSpeed, rb.linearVelocity.y);
+        rb.linearVelocity = new Vector2(
+            currentSpeed,
+            rb.linearVelocity.y
+        );
     }
 
+
     // HANDLE JUMPING
+
     private void OnJump(InputAction.CallbackContext context)
     {
+        if (isDead) return;
+
         jumpRequested = true;
     }
 
@@ -126,69 +162,150 @@ public class PlayerController : MonoBehaviour
     {
         if (jumpRequested && grounded)
         {
-            rb.AddForce(Vector2.up * jumpForce, ForceMode2D.Impulse);
+            rb.AddForce(
+                Vector2.up * jumpForce,
+                ForceMode2D.Impulse
+            );
         }
 
         jumpRequested = false;
     }
 
+
     // CHECK GROUNDING
 
     private void CheckGround()
     {
-        grounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer) != null;
+        grounded = Physics2D.OverlapCircle(
+            groundCheck.position,
+            groundCheckRadius,
+            groundLayer
+        ) != null;
     }
+
+    public bool IsGrounded()
+    {
+        return grounded && !isDead;
+    }
+
 
     // CALCULATE ACCELERATION
+
     private float CalculateAcceleration()
     {
-        if (grounded) // check if grounded
+        if (grounded)
         {
-            return acceleration; // just use normal acceleration
+            return acceleration;
         }
 
-        return acceleration * airControl; // if airborne, use acceleration times by a percentage (30%)
+        return acceleration * airControl;
     }
 
+
     // BOMBS
+
     private void OnBomb(InputAction.CallbackContext context)
     {
+        if (isDead) return;
+
         PlaceBomb();
     }
 
     private void PlaceBomb()
     {
         Debug.Log("Bombs Requested");
-        if (currentBombs <= 0) // If we have no bombs left, dont run the rest of this method
+
+        if (currentBombs <= 0)
         {
             Debug.LogWarning("Out of Bombs! Please Collect More!");
             return;
         }
 
-        {
-            
-        }
-        Instantiate(bombPrefab, bombSpawnPoint.position, Quaternion.identity);
+        Instantiate(
+            bombPrefab,
+            bombSpawnPoint.position,
+            Quaternion.identity
+        );
 
         currentBombs--;
+
+        SaveBombInventory();
         UpdateBombUI();
 
-        Debug.Log("Bombs remaining: " +  currentBombs);
+        Debug.Log("Bombs remaining: " + currentBombs);
     }
+
+
+    // BOMB INVENTORY
 
     public void RefillBombs()
     {
+        if (GameManager.Instance != null &&
+            !GameManager.Instance.BombsUnlocked())
+        {
+            return;
+        }
+
         currentBombs = maxBombs;
+
+        SaveBombInventory();
         UpdateBombUI();
+    }
+
+    public void UnlockBombs()
+    {
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.UnlockBombs();
+        }
+
+        currentBombs = maxBombs;
+
+        SaveBombInventory();
+        UpdateBombUI();
+    }
+
+    private void SaveBombInventory()
+    {
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.SetBombCount(currentBombs);
+        }
     }
 
     private void UpdateBombUI()
     {
+        if (bombCounterText == null) return;
+
         bombCounterText.text = "BOMBS: " + currentBombs;
     }
 
 
+    // PLAYER DEATH
 
+    public void Die()
+    {
+        if (isDead) return;
+
+        isDead = true;
+
+        moveInput = 0f;
+        jumpRequested = false;
+
+        rb.linearVelocity = Vector2.zero;
+        rb.simulated = false;
+
+        Debug.Log("Shortstuff has died!");
+
+        if (GameManager.Instance != null)
+        {
+            GameManager.Instance.PlayerDied();
+        }
+        else
+        {
+            Debug.LogError("No GameManager found!");
+        }
+    }
 
 
     // GIZMOS AND DEBUGS
@@ -199,6 +316,9 @@ public class PlayerController : MonoBehaviour
 
         Gizmos.color = Color.green;
 
-        Gizmos.DrawWireSphere(groundCheck.position, groundCheckRadius);
+        Gizmos.DrawWireSphere(
+            groundCheck.position,
+            groundCheckRadius
+        );
     }
 }
