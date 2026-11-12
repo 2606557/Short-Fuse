@@ -5,9 +5,13 @@ using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
-    // INSTANCE
+    // SINGLETON
 
-    public static GameManager Instance { get; private set; }
+    // A singleton ensures that only one instance of this class exists.
+    // The [STATIC] [INSTANCE] allows other scripts to access our GameManager
+    // without needing a direct reference to it.
+
+    public static GameManager Instance { get; private set; } // SINGLETON INSTANCE
 
 
     // BOMB INVENTORY
@@ -38,14 +42,22 @@ public class GameManager : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance != null && Instance != this)
+        // IMPLEMENTING A SINGLETON AND ENSURING ONLY ONE INSTANCE EVER EXISTS
+
+        // If no GameManager exists, this becomes our singleton.
+        if (Instance == null)
         {
+            Instance = this;
+
+            // Keep the GameManager alive when scenes are loaded or reloaded.
+            DontDestroyOnLoad(gameObject);
+        }
+        else
+        {
+            // If a GameManager already exists, destroy this duplicate.
             Destroy(gameObject);
             return;
         }
-
-        Instance = this;
-        DontDestroyOnLoad(gameObject);
 
         if (!bombsUnlocked)
         {
@@ -53,6 +65,13 @@ public class GameManager : MonoBehaviour
         }
 
         SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    private void Start()
+    {
+        // Start runs after the scene objects have completed Awake.
+        // Our checkpoints have now registered their child colliders.
+        SetupInitialSpawn();
     }
 
     private void OnDestroy()
@@ -91,6 +110,41 @@ public class GameManager : MonoBehaviour
     {
         bombsUnlocked = true;
         currentBombs = maxBombs;
+    }
+
+
+    // INITIAL SPAWN
+
+    private void SetupInitialSpawn()
+    {
+        PlayerController player = FindFirstObjectByType<PlayerController>();
+        Checkpoint checkpoints = FindFirstObjectByType<Checkpoint>();
+
+        if (player == null || checkpoints == null)
+        {
+            Debug.LogWarning("Initial spawn requires a Player and Checkpoint system.");
+            return;
+        }
+
+        // Find the checkpoint nearest to the player's editor position.
+        Collider2D nearest = checkpoints.FindNearestCheckpoint(
+            player.transform.position
+        );
+
+        if (nearest == null)
+        {
+            Debug.LogWarning("No checkpoint colliders found!");
+            return;
+        }
+
+        // Activate the checkpoint, registering its safe ground position.
+        checkpoints.ActivateCheckpoint(nearest);
+
+        // Spawn the player using the registered checkpoint position.
+        if (hasCheckpoint)
+        {
+            player.SpawnAt(checkpointPosition);
+        }
     }
 
 
@@ -153,6 +207,7 @@ public class GameManager : MonoBehaviour
     {
         playerDying = false;
 
+        // No saved checkpoint means the initial spawn is handled in Start.
         if (!hasCheckpoint || scene.name != checkpointScene)
         {
             return;
@@ -165,13 +220,9 @@ public class GameManager : MonoBehaviour
             return;
         }
 
-        player.transform.position = checkpointPosition;
+        // Checkpoint positions represent the player's feet.
+        player.SpawnAt(checkpointPosition);
 
-        Rigidbody2D rb = player.GetComponent<Rigidbody2D>();
-
-        if (rb != null)
-        {
-            rb.linearVelocity = Vector2.zero;
-        }
+        Debug.Log("Player respawned at checkpoint: " + checkpointID);
     }
 }

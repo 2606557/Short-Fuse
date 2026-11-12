@@ -1,56 +1,133 @@
-﻿
-using UnityEngine;
+﻿using UnityEngine;
 
 public class Checkpoint : MonoBehaviour
 {
-    // CHECKPOINT SETTINGS
-
-    [SerializeField] private string checkpointID = "Checkpoint";
-
-
     // REFERENCES
 
-    [SerializeField] private Transform spawnPoint;
+    private BoxCollider2D[] checkpointColliders;
+
+    [SerializeField] private LayerMask groundLayer;
 
 
-    // TRIGGER DETECTION
+    // GROUND DETECTION
 
-    private void OnTriggerStay2D(Collider2D other)
+    [Range(0.5f, 10f)]
+    [SerializeField] private float groundSearchDistance = 5f;
+
+
+    // SETUP
+
+    private void Awake()
     {
-        PlayerController player = other.GetComponent<PlayerController>();
+        // Find every BoxCollider2D on this object and its children.
+        checkpointColliders = GetComponentsInChildren<BoxCollider2D>();
 
-        if (player == null)
+        Debug.Log("Checkpoint system found " + checkpointColliders.Length + " checkpoint colliders.");
+
+        // Log each collider and its assigned index.
+        for (int i = 0; i < checkpointColliders.Length; i++)
         {
-            return;
+            Debug.Log("Checkpoint " + i + ": " + checkpointColliders[i].name);
+        }
+    }
+
+    // FIND NEAREST CHECKPOINT
+
+    public Collider2D FindNearestCheckpoint(Vector3 position)
+    {
+        Collider2D nearest = null;
+        float nearestDistance = Mathf.Infinity;
+
+        foreach (BoxCollider2D checkpointCollider in checkpointColliders)
+        {
+            // Find the closest point on this checkpoint's collider.
+            Vector2 closestPoint = checkpointCollider.ClosestPoint(position);
+
+            float distance = Vector2.Distance(position, closestPoint);
+
+            if (distance < nearestDistance)
+            {
+                nearestDistance = distance;
+                nearest = checkpointCollider;
+            }
         }
 
-        if (!player.IsGrounded())
+        return nearest;
+    }
+
+    // FIND SPAWN POSITION
+
+    public bool FindSpawnPosition(Collider2D checkpointCollider, out Vector3 spawnPosition)
+    {
+        spawnPosition = Vector3.zero;
+
+        Vector2 rayOrigin = checkpointCollider.bounds.center;
+
+        RaycastHit2D hit = Physics2D.Raycast(
+            rayOrigin,
+            Vector2.down,
+            groundSearchDistance,
+            groundLayer
+        );
+
+        if (hit.collider == null)
         {
-            return;
+            Debug.LogWarning("No ground found beneath " + checkpointCollider.name);
+            return false;
         }
 
-        ActivateCheckpoint();
+        spawnPosition = hit.point;
+        return true;
     }
 
 
     // ACTIVATE CHECKPOINT
 
-    private void ActivateCheckpoint()
+    public void ActivateCheckpoint(Collider2D checkpointCollider)
     {
-        if (GameManager.Instance == null)
+        for (int i = 0; i < checkpointColliders.Length; i++)
         {
+            if (checkpointColliders[i] != checkpointCollider)
+            {
+                continue;
+            }
+
+            if (!FindSpawnPosition(checkpointCollider, out Vector3 spawnPosition))
+            {
+                return;
+            }
+
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.SetCheckpoint(
+                    i.ToString(),
+                    spawnPosition
+                );
+            }
+
             return;
         }
+    }
 
-        if (spawnPoint == null)
+
+    // GIZMOS
+
+    private void OnDrawGizmosSelected()
+    {
+        if (checkpointColliders == null) return;
+
+        Gizmos.color = Color.yellow;
+
+        foreach (BoxCollider2D checkpointCollider in checkpointColliders)
         {
-            Debug.LogWarning("Checkpoint has no SpawnPoint!");
-            return;
-        }
+            if (checkpointCollider == null) continue;
 
-        GameManager.Instance.SetCheckpoint(
-            checkpointID,
-            spawnPoint.position
-        );
+            Vector3 origin = checkpointCollider.bounds.center;
+
+            Gizmos.DrawLine(
+                origin,
+                origin + Vector3.down * groundSearchDistance
+            );
+        }
     }
 }

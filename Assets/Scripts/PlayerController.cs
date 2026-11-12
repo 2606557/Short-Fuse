@@ -5,16 +5,23 @@ using TMPro;
 
 public class PlayerController : MonoBehaviour
 {
-    // REFERENCES
 
+    // INPUT ACTION REFERENCES
     [SerializeField] private InputActionReference moveAction;
     [SerializeField] private InputActionReference jumpAction;
     [SerializeField] private InputActionReference bombAction;
 
+    // COMPONENT REFERENCES
     private Rigidbody2D rb;
 
+    // LAYERS
     [SerializeField] private Transform groundCheck;
     [SerializeField] private LayerMask groundLayer;
+    [SerializeField] private LayerMask deathZoneLayer;
+    [SerializeField] private LayerMask enemyLayer;
+    [SerializeField] private LayerMask checkpointLayer;
+
+    // UI
     [SerializeField] private TMP_Text bombCounterText;
 
 
@@ -281,6 +288,59 @@ public class PlayerController : MonoBehaviour
     }
 
 
+    // PLAYER SPAWNING
+
+    public void SpawnAt(Vector3 groundPosition)
+    {
+        // Calculate the distance between the player's origin and feet.
+        Vector3 feetOffset = transform.position - groundCheck.position;
+
+        // Position the player so their feet match the spawn position.
+        transform.position = groundPosition + feetOffset;
+
+        // Remove any movement carried over from the previous position.
+        rb.linearVelocity = Vector2.zero;
+    }
+
+
+    // PLAYER TRIGGERS
+
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        // Log every trigger the player enters, regardless of its layer.
+        Debug.Log("Player entered trigger: " + other.name +
+                  " | Layer: " + LayerMask.LayerToName(other.gameObject.layer));
+
+        int deadlyLayers = deathZoneLayer.value | enemyLayer.value;
+
+        // Check for Death Zones and enemies.
+        if ((deadlyLayers & (1 << other.gameObject.layer)) != 0)
+        {
+            Debug.Log("Deadly trigger detected!");
+            Die();
+            return;
+        }
+
+        // Check for checkpoint triggers.
+        if ((checkpointLayer.value & (1 << other.gameObject.layer)) != 0)
+        {
+            Debug.Log("Checkpoint layer detected: " + other.name);
+
+            Checkpoint checkpoint = other.GetComponentInParent<Checkpoint>();
+
+            if (checkpoint != null)
+            {
+                Debug.Log("Checkpoint parent found: " + checkpoint.name);
+                checkpoint.ActivateCheckpoint(other);
+            }
+            else
+            {
+                Debug.LogWarning("Checkpoint trigger has no Checkpoint parent!");
+            }
+        }
+    }
+
+
     // PLAYER DEATH
 
     public void Die()
@@ -289,14 +349,9 @@ public class PlayerController : MonoBehaviour
 
         isDead = true;
 
-        moveInput = 0f;
-        jumpRequested = false;
-
-        rb.linearVelocity = Vector2.zero;
-        rb.simulated = false;
-
         Debug.Log("Shortstuff has died!");
 
+        // Tell the GameManager to begin the respawn process.
         if (GameManager.Instance != null)
         {
             GameManager.Instance.PlayerDied();
@@ -305,6 +360,9 @@ public class PlayerController : MonoBehaviour
         {
             Debug.LogError("No GameManager found!");
         }
+
+        // Remove the player immediately.
+        Destroy(gameObject);
     }
 
 
