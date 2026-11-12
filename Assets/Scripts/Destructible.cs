@@ -2,13 +2,10 @@ using UnityEngine;
 
 public class Destructible : MonoBehaviour
 {
-
-    // Destruction
+    // DESTRUCTION
 
     public void DestroyObject()
     {
         Destroy(gameObject);
     }
-
-
 }

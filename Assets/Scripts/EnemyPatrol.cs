@@ -6,6 +6,8 @@ public class EnemyPatrol : MonoBehaviour
 {
     // REFERENCES
 
+    [SerializeField] private Transform enemy;
+    [SerializeField] private Transform patrolPivot;
     [SerializeField] private Transform pointA;
     [SerializeField] private Transform pointB;
 
@@ -20,6 +22,8 @@ public class EnemyPatrol : MonoBehaviour
     [Range(0f, 3f)]
     [SerializeField] private float waitTime = 1f;
 
+    [SerializeField] private bool startOnNearestPoint = true;
+
     private Vector2 destination;
     private bool headingToB = true;
 
@@ -28,12 +32,47 @@ public class EnemyPatrol : MonoBehaviour
 
     private void Awake()
     {
-        rb = GetComponent<Rigidbody2D>();
+        if (enemy != null)
+        {
+            rb = enemy.GetComponent<Rigidbody2D>();
+        }
     }
 
     private void Start()
     {
+        if (enemy == null || patrolPivot == null ||
+            pointA == null || pointB == null || rb == null)
+        {
+            Debug.LogError("Patrolling Enemy is missing references!", this);
+            return;
+        }
+
+        SetStartingPosition();
         SetDestination();
+    }
+
+
+    // STARTING POSITION
+
+    private void SetStartingPosition()
+    {
+        if (!startOnNearestPoint)
+        {
+            return;
+        }
+
+        float distanceA = Vector2.Distance(patrolPivot.position, pointA.position);
+        float distanceB = Vector2.Distance(patrolPivot.position, pointB.position);
+
+        Vector2 nearestPoint = distanceA <= distanceB
+            ? (Vector2)pointA.position
+            : (Vector2)pointB.position;
+
+        headingToB = distanceA <= distanceB;
+
+        Vector2 offset = (Vector2)patrolPivot.position - rb.position;
+
+        rb.position = nearestPoint - offset;
     }
 
 
@@ -61,15 +100,17 @@ public class EnemyPatrol : MonoBehaviour
 
     private IEnumerator TravelToDestination()
     {
-        while (Vector2.Distance(rb.position, destination) > 0.01f)
+        while (Vector2.Distance(patrolPivot.position, destination) > 0.01f)
         {
-            Vector2 nextPosition = Vector2.MoveTowards(
-                rb.position,
+            Vector2 nextOrigin = Vector2.MoveTowards(
+                patrolPivot.position,
                 destination,
                 moveSpeed * Time.fixedDeltaTime
             );
 
-            rb.MovePosition(nextPosition);
+            Vector2 movement = nextOrigin - (Vector2)patrolPivot.position;
+
+            rb.MovePosition(rb.position + movement);
 
             yield return new WaitForFixedUpdate();
         }
@@ -93,17 +134,26 @@ public class EnemyPatrol : MonoBehaviour
     }
 
 
-    // PLAYER COLLISION
+    // GIZMOS
 
-    private void OnTriggerEnter2D(Collider2D other)
+    private void OnDrawGizmos()
     {
-        PlayerController player = other.GetComponent<PlayerController>();
-
-        if (player == null)
+        if (pointA == null || pointB == null)
         {
             return;
         }
 
-        player.Die();
+        Gizmos.color = Color.yellow;
+
+        Gizmos.DrawLine(pointA.position, pointB.position);
+
+        Gizmos.DrawWireSphere(pointA.position, 0.2f);
+        Gizmos.DrawWireSphere(pointB.position, 0.2f);
+
+        if (patrolPivot != null)
+        {
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireSphere(patrolPivot.position, 0.12f);
+        }
     }
 }

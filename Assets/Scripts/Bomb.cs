@@ -64,7 +64,7 @@ public class Bomb : MonoBehaviour
         foreach (Collider2D hit in hits)
         {
             // Destroy any objects that are "Desctructible"
-            Destructible destructible = hit.GetComponent<Destructible>(); // Success - assign the desctible script to this variable OR Fail - it wont find anything
+            Destructible destructible = hit.GetComponentInParent<Destructible>(); // Success - assign the desctible script to this variable OR Fail - it wont find anything
 
             if (destructible != null)
             {
