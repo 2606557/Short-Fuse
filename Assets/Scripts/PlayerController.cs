@@ -14,12 +14,10 @@ public class PlayerController : MonoBehaviour
     // COMPONENT REFERENCES
     private Rigidbody2D rb;
 
-    // LAYERS
+    // GROUND CHECKING
     [SerializeField] private Transform groundCheck;
     [SerializeField] private LayerMask groundLayer;
-    [SerializeField] private LayerMask deathZoneLayer;
-    [SerializeField] private LayerMask enemyLayer;
-    [SerializeField] private LayerMask checkpointLayer;
+
 
     // UI
     [SerializeField] private TMP_Text bombCounterText;
@@ -307,22 +305,27 @@ public class PlayerController : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        // Log every trigger the player enters, regardless of its layer.
+        int objectLayer = other.gameObject.layer;
+
+        int deathZoneLayer = LayerMask.NameToLayer("DeathZone");
+        int enemyLayer = LayerMask.NameToLayer("Enemy");
+        int checkpointLayer = LayerMask.NameToLayer("Checkpoint");
+
         Debug.Log("Player entered trigger: " + other.name +
-                  " | Layer: " + LayerMask.LayerToName(other.gameObject.layer));
+                  " | Layer: " + LayerMask.LayerToName(objectLayer));
 
-        int deadlyLayers = deathZoneLayer.value | enemyLayer.value;
+        // DEATH ZONES AND ENEMIES
 
-        // Check for Death Zones and enemies.
-        if ((deadlyLayers & (1 << other.gameObject.layer)) != 0)
+        if (objectLayer == deathZoneLayer || objectLayer == enemyLayer)
         {
             Debug.Log("Deadly trigger detected!");
             Die();
             return;
         }
 
-        // Check for checkpoint triggers.
-        if ((checkpointLayer.value & (1 << other.gameObject.layer)) != 0)
+        // CHECKPOINTS
+
+        if (objectLayer == checkpointLayer)
         {
             Debug.Log("Checkpoint layer detected: " + other.name);
 

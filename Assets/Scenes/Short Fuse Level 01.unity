@@ -738,8 +738,8 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
-  m_Sprite: {fileID: -9095717837082945937, guid: 207ee8102dd4143d288186ef0be518ee, type: 3}
-  m_Color: {r: 0.46730742, g: 0.8301887, b: 0.71756494, a: 1}
+  m_Sprite: {fileID: 21300000, guid: ebab740d3141f4e4b921b88f2d10caec, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -758,7 +758,7 @@ Transform:
   m_GameObject: {fileID: 303983154}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -19.46, y: -8.89, z: 0}
+  m_LocalPosition: {x: -19.94, y: -9.48, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -822,15 +822,6 @@ MonoBehaviour:
   groundLayer:
     serializedVersion: 2
     m_Bits: 8
-  deathZoneLayer:
-    serializedVersion: 2
-    m_Bits: 256
-  enemyLayer:
-    serializedVersion: 2
-    m_Bits: 512
-  checkpointLayer:
-    serializedVersion: 2
-    m_Bits: 1024
   bombCounterText: {fileID: 1761331974}
   bombPrefab: {fileID: 1468673705168326587, guid: 4e5a54720fecabf4fb237d6f592c3f91, type: 3}
   bombSpawnPoint: {fileID: 323815686}
