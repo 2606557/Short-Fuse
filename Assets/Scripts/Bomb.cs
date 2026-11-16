@@ -1,5 +1,6 @@
-using UnityEngine;
+using System;
 using System.Collections;
+using UnityEngine;
 
 public class Bomb : MonoBehaviour
 {
@@ -7,6 +8,7 @@ public class Bomb : MonoBehaviour
     // REFERENCES
     private SpriteRenderer spriteRenderer;
     private AudioSource audioSource;
+    private Rigidbody2D rb;
 
     // BOMB SETTINGS
 
@@ -21,6 +23,10 @@ public class Bomb : MonoBehaviour
 
     [SerializeField] private AudioClip fuseBeep;
     [SerializeField] private AudioClip explosionSound;
+
+    private bool hasExploded;
+
+    public event Action<Bomb> Exploded;
 
     // BOMB FLASH SETTINGS
 
@@ -43,6 +49,7 @@ public class Bomb : MonoBehaviour
     {
         spriteRenderer = GetComponent<SpriteRenderer>();
         audioSource = GetComponent<AudioSource>();
+        rb = GetComponent<Rigidbody2D>();
 
         originalColor = spriteRenderer.color;
     }
@@ -51,7 +58,26 @@ public class Bomb : MonoBehaviour
     {
         StartCoroutine(FlashFuse());// Start flashing on a loop
 
-        Invoke(nameof(Explode), fuseTime); // Explode after (fuseTime) seconds
+        Invoke(nameof(Detonate), fuseTime); // Explode after (fuseTime) seconds
+
+    }
+
+    // LAUNCH
+    public void Launch(Vector2 impulse, float spinDegreesPerSecond)
+    {
+        rb.AddForce(impulse, ForceMode2D.Impulse);
+        rb.angularVelocity = spinDegreesPerSecond;
+    }
+
+    // DETONATE
+    public void Detonate()
+    {
+        if (hasExploded) return;
+
+        hasExploded = true;
+        CancelInvoke(nameof(Detonate));
+        StopAllCoroutines();
+        Explode();
     }
 
 
@@ -59,6 +85,8 @@ public class Bomb : MonoBehaviour
 
     private void Explode()
     {
+        Exploded?.Invoke(this);
+
         Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, explosionRadius);
 
         foreach (Collider2D hit in hits)
@@ -89,16 +117,34 @@ public class Bomb : MonoBehaviour
             // therefore all thats left is rbs that are dynamic (like the player etc)
 
             // calculate the explosion direction
-            Vector2 direction = (targetRB.worldCenterOfMass - (Vector2)transform.position).normalized;
+            Vector2 direction = (targetRB.worldCenterOfMass - (Vector2)transform.position);
 
-            // calculate the actual force based on direction and distance
-            targetRB.AddForce(direction * explosionForce, ForceMode2D.Impulse);
+            if (direction.sqrMagnitude < 0.0001f)
+            {
+                direction = Vector2.up;
+            }
+
+            Vector2 impulse = direction.normalized * explosionForce;
+
+            // Check whether this RB2D belongs to the player
+
+            PlayerController player = targetRB.GetComponent<PlayerController>();
+            if (player != null)
+            {
+                player.ReceiveExplosion(transform.position, impulse);
+            }
+
+            else
+
+                targetRB.AddForce(impulse, ForceMode2D.Impulse);
 
             Debug.Log("Explosion hit: " + hit.name);
         }
 
         AudioSource.PlayClipAtPoint(explosionSound, Camera.main.transform.position, 0.8f); 
         Destroy(gameObject);
+
+
     }
 
     private IEnumerator FlashFuse()
