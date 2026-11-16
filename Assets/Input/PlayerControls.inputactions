@@ -36,7 +36,7 @@
                 {
                     "name": "Detonate",
                     "type": "Button",
-                    "id": "a17c73e0-96dc-4314-972b-49f55c9602da",
+                    "id": "b8fc8362-44b8-4e4d-a2a9-632ac4a01761",
                     "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
@@ -156,7 +156,7 @@
                 },
                 {
                     "name": "",
-                    "id": "c0af6b72-2752-4a26-813a-79f3dba9fb0d",
+                    "id": "aac6234d-4ad8-4b9d-9aa9-4a424a353ff2",
                     "path": "<Keyboard>/e",
                     "interactions": "",
                     "processors": "",
@@ -167,7 +167,7 @@
                 },
                 {
                     "name": "",
-                    "id": "56e24842-a6dc-408a-bf9c-44edf5aedae5",
+                    "id": "36607059-1f75-4fb0-b7b1-5ca154c69b0b",
                     "path": "<Gamepad>/rightTrigger",
                     "interactions": "",
                     "processors": "",

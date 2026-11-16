@@ -1,427 +1,204 @@
-<<<<<<< Updated upstream
-
-=======
-using System;
 using System.Collections;
->>>>>>> Stashed changes
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using TMPro;
 
 public class PlayerController : MonoBehaviour
 {
-
-    // INPUT ACTION REFERENCES
+    // INPUT ACTIONS (assign the same Move, Jump and Bomb actions as Week 2)
     [SerializeField] private InputActionReference moveAction;
     [SerializeField] private InputActionReference jumpAction;
     [SerializeField] private InputActionReference bombAction;
-<<<<<<< Updated upstream
+    [SerializeField] private InputActionReference detonateAction; // NEW: create an action
 
-    // COMPONENT REFERENCES
-=======
-    [SerializeField] private InputActionReference detonateAction;
->>>>>>> Stashed changes
-    private Rigidbody2D rb;
-
-    // GROUND CHECKING
+    // EXISTING REFERENCES
     [SerializeField] private Transform groundCheck;
     [SerializeField] private LayerMask groundLayer;
-
-
-    // UI
     [SerializeField] private TMP_Text bombCounterText;
+    [SerializeField] private GameObject bombPrefab;
+    [SerializeField] private Transform bombSpawnPoint;
 
-<<<<<<< Updated upstream
-=======
-    // RAGDOLL REFERENCES
+    // VISUALS
+    [SerializeField] private SpriteRenderer characterSprite;
+    [SerializeField] private bool spriteFacesRight = true;
+
+    // BOMBS
+    [Range(1, 10)] [SerializeField] private int maxBombs = 3;
+    [SerializeField] private float throwForce = 9f;
+    [Range(0f, 90f)] [SerializeField] private float throwAngle = 40f;
+    [SerializeField] private float throwSpin = 180f; // degrees/second, applied via angular velocity
+    private int currentBombs;
+    private Bomb activeBomb;
+
+    // RAGDOLL
     [SerializeField] private ShortstuffRagdoll ragdollPrefab;
-    private ShortstuffRagdoll activeRagdoll;
-    private bool stunned;
-    private Collider2D[] playerColliders;
-    private SpriteRenderer characterSprite;
-
-    // STUN SETTINGS
     [SerializeField] private float minimumStunTime = 1.5f;
     [SerializeField] private float maximumStunTime = 4f;
     [SerializeField] private float recoveryCheckRadius = 0.22f;
     [SerializeField] private float recoveryHeight = 0.15f;
+    private ShortstuffRagdoll activeRagdoll;
+    private Coroutine recoveryRoutine;
+    private bool stunned;
 
-    // COLIDER DIMMESNSIONS
+    // MOVEMENT (original Week 2 values)
+    [Range(1f, 12f)] [SerializeField] private float moveSpeed = 6f;
+    [Range(1f, 100f)] [SerializeField] private float acceleration = 40f;
+    [Range(1f, 20f)] [SerializeField] private float jumpForce = 10f;
+    [Range(0.05f, 0.5f)] [SerializeField] private float groundCheckRadius = 0.15f;
+    [Range(0f, 1f)] [SerializeField] private float airControl = 0.3f;
+
+    private Rigidbody2D rb;
+    private Collider2D[] playerColliders;
     private Vector2 standingColliderSize;
     private Vector2 standingColliderOffset;
->>>>>>> Stashed changes
-
-    // BOMB REFERENCES
-
-    [SerializeField] private GameObject bombPrefab;
-    [SerializeField] private Transform bombSpawnPoint;
-
-
-    // BOMB INVENTORY
-
-    [Range(1, 10)]
-    [SerializeField] private int maxBombs = 3;
-
-    private int currentBombs;
-
-<<<<<<< Updated upstream
-=======
-    // BOMB THROW SETTINGS
-    [SerializeField] private float throwForce = 9f;
-
-    [Range(0f, 90f)]
-    [SerializeField] private float throwAngle = 40f;
-
-    [SerializeField] private float throwSpin = 360f;
-
-    private Bomb activeBomb;
-
-
-
->>>>>>> Stashed changes
-
-    // PLAYER INPUT
-
     private float moveInput;
-    private bool jumpRequested = false;
+    private bool jumpRequested;
     private bool grounded;
-    private bool isDead;
-
-
-    public int FacingDirection { get; private set; } = 1;
-    [SerializeField] private bool spriteFacesRight = true;
-
-    // MOVEMENT SETTINGS
-
-    [Range(1f, 12f)]
-    [SerializeField] private float moveSpeed = 6f;
-
-    [Range(1f, 100f)]
-    [SerializeField] private float acceleration = 40f;
-
     private float currentSpeed;
 
-    [Range(1f, 20f)]
-    [SerializeField] private float jumpForce = 10f;
-
-    [Range(0.05f, 0.5f)]
-    [SerializeField] private float groundCheckRadius = 0.15f;
-
-    [Range(0f, 1f)]
-    [SerializeField] private float airControl = 0.3f;
-
-
-    // SETUP
+    public int FacingDirection { get; private set; } = 1;
+    public bool IsStunned => stunned;
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
-
-        currentBombs = maxBombs;
-
-        if (GameManager.Instance != null)
-        {
-            currentBombs = GameManager.Instance.GetBombCount();
-        }
-
-        UpdateBombUI();
-
-        // Find Ragdoll/Graphics Objects
         playerColliders = GetComponentsInChildren<Collider2D>();
-
-        characterSprite = GetComponentInChildren<SpriteRenderer>();
-
         Collider2D mainCollider = GetComponent<Collider2D>();
         if (mainCollider != null)
         {
             standingColliderSize = mainCollider.bounds.size;
-
             standingColliderOffset = (Vector2)(mainCollider.bounds.center - transform.position);
         }
+        else standingColliderSize = new Vector2(0.6f, 0.9f);
+        currentBombs = maxBombs;
+        UpdateBombUI();
     }
 
     private void OnEnable()
     {
-        moveAction.action.Enable();
-
-        jumpAction.action.Enable();
-        jumpAction.action.performed += OnJump;
-
-        bombAction.action.Enable();
-        bombAction.action.performed += OnBomb;
-
-        detonateAction.action.Enable();
-        detonateAction.action.performed += OnDetonate;
+        if (moveAction != null) moveAction.action.Enable();
+        if (jumpAction != null)
+        {
+            jumpAction.action.Enable();
+            jumpAction.action.performed += OnJump;
+        }
+        if (bombAction != null)
+        {
+            bombAction.action.Enable();
+            bombAction.action.performed += OnBomb;
+        }
+        if (detonateAction != null)
+        {
+            detonateAction.action.Enable();
+            detonateAction.action.performed += OnDetonate;
+        }
     }
 
     private void OnDisable()
     {
-        moveAction.action.Disable();
-
-        jumpAction.action.performed -= OnJump;
-        jumpAction.action.Disable();
-
-        bombAction.action.performed -= OnBomb;
-        bombAction.action.Disable();
-
-        detonateAction.action.performed -= OnDetonate;
-        detonateAction.action.Disable();
+        if (jumpAction != null)
+        {
+            jumpAction.action.performed -= OnJump;
+            jumpAction.action.Disable();
+        }
+        if (bombAction != null)
+        {
+            bombAction.action.performed -= OnBomb;
+            bombAction.action.Disable();
+        }
+        if (detonateAction != null)
+        {
+            detonateAction.action.performed -= OnDetonate;
+            detonateAction.action.Disable();
+        }
+        if (moveAction != null) moveAction.action.Disable();
     }
-
-
-    // INPUT
 
     private void Update()
     {
-<<<<<<< Updated upstream
-        if (isDead) return;
-=======
         if (stunned) return;
->>>>>>> Stashed changes
 
-        moveInput = moveAction.action.ReadValue<Vector2>().x;
-
-        if (moveInput > 0.1f)
-        {
-            FacingDirection = 1;
-        }
-        else if (moveInput < -0.1f)
-        {
-            FacingDirection = -1;
-        }
+        moveInput = moveAction != null ? moveAction.action.ReadValue<Vector2>().x : 0f;
+        if (moveInput > 0.1f) FacingDirection = 1;
+        else if (moveInput < -0.1f) FacingDirection = -1;
 
         if (characterSprite != null)
-        {
-            characterSprite.flipX = spriteFacesRight
-                ? FacingDirection < 0
-                : FacingDirection > 0;
-        }
+            characterSprite.flipX = spriteFacesRight ? FacingDirection < 0 : FacingDirection > 0;
     }
-
-
-    // MOVEMENT
 
     private void FixedUpdate()
     {
-<<<<<<< Updated upstream
-        if (isDead) return;
-=======
         if (stunned) return;
->>>>>>> Stashed changes
-
         CheckGround();
         HandleAcceleration();
         HandleMovement();
         HandleJump();
     }
 
-
-    // HANDLE ACCELLERATION
+    private void CheckGround()
+    {
+        grounded = groundCheck != null &&
+            Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer) != null;
+    }
 
     private void HandleAcceleration()
     {
         float targetSpeed = moveInput * moveSpeed;
-
-        float currentAcceleration = CalculateAcceleration();
-
-        currentSpeed = Mathf.MoveTowards(
-            rb.linearVelocity.x,
-            targetSpeed,
-            currentAcceleration * Time.fixedDeltaTime
-        );
+        float rate = grounded ? acceleration : acceleration * airControl;
+        currentSpeed = Mathf.MoveTowards(rb.linearVelocity.x, targetSpeed, rate * Time.fixedDeltaTime);
     }
-
-
-    // HANDLE MOVEMENT
 
     private void HandleMovement()
     {
-        rb.linearVelocity = new Vector2(
-            currentSpeed,
-            rb.linearVelocity.y
-        );
+        rb.linearVelocity = new Vector2(currentSpeed, rb.linearVelocity.y);
     }
-
-
-    // HANDLE JUMPING
 
     private void OnJump(InputAction.CallbackContext context)
     {
-<<<<<<< Updated upstream
-        if (isDead) return;
-=======
-        if (stunned) return;
->>>>>>> Stashed changes
-
-        jumpRequested = true;
+        if (!stunned) jumpRequested = true;
     }
 
     private void HandleJump()
     {
         if (jumpRequested && grounded)
-        {
-            rb.AddForce(
-                Vector2.up * jumpForce,
-                ForceMode2D.Impulse
-            );
-        }
-
+            rb.AddForce(Vector2.up * jumpForce, ForceMode2D.Impulse);
         jumpRequested = false;
     }
 
-
-    // CHECK GROUNDING
-
-    private void CheckGround()
-    {
-        grounded = Physics2D.OverlapCircle(
-            groundCheck.position,
-            groundCheckRadius,
-            groundLayer
-        ) != null;
-    }
-
-    public bool IsGrounded()
-    {
-        return grounded && !isDead;
-    }
-
-
-    // CALCULATE ACCELERATION
-
-    private float CalculateAcceleration()
-    {
-        if (grounded)
-        {
-            return acceleration;
-        }
-
-        return acceleration * airControl;
-    }
-
-
-    // BOMBS
-
     private void OnBomb(InputAction.CallbackContext context)
     {
-<<<<<<< Updated upstream
-        if (isDead) return;
-
-        PlaceBomb();
-=======
-        if (stunned) return;
-
-        ThrowBomb();
->>>>>>> Stashed changes
+        if (!stunned) ThrowBomb();
     }
 
     private void ThrowBomb()
     {
-        if (activeBomb != null)
-        {
+        // One active bomb at a time; inventory remains on this controller.
+        if (currentBombs <= 0 || activeBomb != null || bombPrefab == null || bombSpawnPoint == null)
             return;
-        }
-
-        Debug.Log("Bombs Requested");
-
-        if (currentBombs <= 0)
-        {
-            Debug.LogWarning("Out of Bombs! Please Collect More!");
-            return;
-        }
-
-<<<<<<< Updated upstream
-        Instantiate(
-            bombPrefab,
-            bombSpawnPoint.position,
-            Quaternion.identity
-        );
-=======
-        {
-            
-        }
 
         GameObject instance = Instantiate(bombPrefab, bombSpawnPoint.position, Quaternion.identity);
-
-        float radians = throwAngle * Mathf.Deg2Rad;
-
-        Vector2 direction = new Vector2(FacingDirection * Mathf.Cos(radians), Mathf.Sin(radians));
-
         Bomb bomb = instance.GetComponent<Bomb>();
-
-        activeBomb = bomb;
-
-        activeBomb.Exploded += OnBombExploded;
-
-        if (bomb!= null)
+        if (bomb == null)
         {
-            bomb.Launch(direction * throwForce, -FacingDirection * throwSpin);
-        }
->>>>>>> Stashed changes
-
-        currentBombs--;
-
-        SaveBombInventory();
-        UpdateBombUI();
-
-        Debug.Log("Bombs remaining: " + currentBombs);
-    }
-
-<<<<<<< Updated upstream
-
-    // BOMB INVENTORY
-=======
-    private void OnDetonate(InputAction.CallbackContext context)
-    {
-        if (stunned) return;
-
-        if (activeBomb != null)
-        {
-            activeBomb.Detonate();
-        }
-    }
->>>>>>> Stashed changes
-
-    public void RefillBombs()
-    {
-        if (GameManager.Instance != null &&
-            !GameManager.Instance.BombsUnlocked())
-        {
+            Debug.LogError("Bomb prefab needs the Bomb component.");
+            Destroy(instance);
             return;
         }
 
-        currentBombs = maxBombs;
-
-        SaveBombInventory();
+        activeBomb = bomb;
+        bomb.Exploded += OnBombExploded;
+        currentBombs--;
         UpdateBombUI();
+
+        float radians = throwAngle * Mathf.Deg2Rad;
+        Vector2 direction = new Vector2(FacingDirection * Mathf.Cos(radians), Mathf.Sin(radians));
+        bomb.Launch(direction * throwForce, -FacingDirection * throwSpin);
     }
 
-    public void UnlockBombs()
+    private void OnDetonate(InputAction.CallbackContext context)
     {
-        if (GameManager.Instance != null)
-        {
-            GameManager.Instance.UnlockBombs();
-        }
-
-        currentBombs = maxBombs;
-
-        SaveBombInventory();
-        UpdateBombUI();
-    }
-
-    private void SaveBombInventory()
-    {
-        if (GameManager.Instance != null)
-        {
-            GameManager.Instance.SetBombCount(currentBombs);
-        }
-    }
-
-    private void UpdateBombUI()
-    {
-        if (bombCounterText == null) return;
-
-        bombCounterText.text = "BOMBS: " + currentBombs;
+        if (!stunned && activeBomb != null)
+            activeBomb.Detonate();
     }
 
     private void OnBombExploded(Bomb bomb)
@@ -433,231 +210,98 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    public void RefillBombs()
+    {
+        currentBombs = maxBombs;
+        UpdateBombUI();
+    }
+
+    private void UpdateBombUI()
+    {
+        if (bombCounterText != null)
+            bombCounterText.text = "BOMBS: " + currentBombs;
+    }
+
+    // Called by Bomb instead of applying an impulse to the normal player body.
     public void ReceiveExplosion(Vector2 explosionOrigin, Vector2 impulse)
     {
-        // Ignore further explosions while already stunned
         if (stunned) return;
+        if (ragdollPrefab == null)
+        {
+            // Allows the rest of the new bomb system to work before the rig is built.
+            rb.AddForce(impulse, ForceMode2D.Impulse);
+            return;
+        }
 
         stunned = true;
-
-        // Remember our velocity before disabling physics
-        Vector2 previousVelocity = rb.linearVelocity;
-
-        Debug.Log("Player caught in explosion!");
-
-        // Make the ragdoll
-        activeRagdoll = Instantiate(ragdollPrefab, transform.position, Quaternion.identity);
-        activeRagdoll.Activate(rb.linearVelocity, impulse, explosionOrigin);
-
-        // Hide the normal character
-        if (characterSprite != null)
-        {
-            characterSprite.enabled = false;
-        }
-
-        // Disable player colliders
-        foreach (Collider2D col in playerColliders)
-        {
-            col.enabled = false;
-        }
-
-        // Stop normal player physics
-        rb.simulated = false;
-
-        // Clear pending movement
         moveInput = 0f;
         jumpRequested = false;
+        Vector2 previousVelocity = rb.linearVelocity;
 
-        StartCoroutine(RecoverWhenReady());
+        activeRagdoll = Instantiate(ragdollPrefab, transform.position, Quaternion.identity);
+        activeRagdoll.Activate(previousVelocity, impulse, explosionOrigin);
+
+        if (characterSprite != null) characterSprite.enabled = false;
+        foreach (Collider2D col in playerColliders)
+            if (col != null) col.enabled = false;
+        rb.simulated = false;
+
+        recoveryRoutine = StartCoroutine(RecoverWhenReady());
     }
 
     private IEnumerator RecoverWhenReady()
     {
-        // Always remain stunned for at least this long
         yield return new WaitForSeconds(minimumStunTime);
-
         float elapsed = minimumStunTime;
 
         while (activeRagdoll != null)
         {
-            Debug.Log("elapsed = " + elapsed);
-
-            Vector2 torsoPosition = activeRagdoll.TorsoPosition;
-
-            // Check for ground beneath the ragdoll
+            Vector2 torso = activeRagdoll.TorsoPosition;
+            // Wait until the ragdoll is near solid ground; don't recover mid-flight.
             bool nearGround = Physics2D.OverlapCircle(
-                torsoPosition + Vector2.down * 0.55f,
-                recoveryCheckRadius,
-                groundLayer
-            ) != null;
+                torso + Vector2.down * 0.55f, recoveryCheckRadius, groundLayer) != null;
 
-            // Check whether the ragdoll has slowed down
             bool slowEnough = activeRagdoll.TorsoSpeed < 2f;
-
-            Debug.Log("Slow Enough = " + slowEnough);
-
-            Debug.Log("Near Ground = " +  nearGround);
-
-            // Decide whether we can recover
             if (nearGround && (slowEnough || elapsed >= maximumStunTime))
             {
+                Vector2 candidate = torso + Vector2.up * recoveryHeight;
+                // Check clearance using the player's main collider bounds.
+                bool blocked = Physics2D.OverlapBox(candidate + standingColliderOffset,
+                    standingColliderSize * 0.85f, 0f, groundLayer) != null;
 
-
-
-                // Choose a position slightly above the ragdoll chest
-                Vector2 candidate = torsoPosition + Vector2.up * recoveryHeight;
-
-                // check whether the player would overlap solid terrain
-                bool blocked = Physics2D.OverlapBox(candidate + standingColliderOffset, standingColliderSize * 0.5f, 0f, groundLayer) != null;
-
-                Debug.Log("Blocked = " + blocked);
-
-                // if not blocked then finish recovery
                 if (!blocked)
                 {
                     FinishRecovery(candidate);
                     yield break;
                 }
-                
             }
 
             elapsed += 0.1f;
-
             yield return new WaitForSeconds(0.1f);
         }
+        recoveryRoutine = null;
     }
 
     private void FinishRecovery(Vector2 position)
     {
-        // Remove the temporary ragdoll
         Destroy(activeRagdoll.gameObject);
-
         activeRagdoll = null;
-
-        // Move the normal player to the recovery position
         transform.position = position;
-
-        // Restore physics
         rb.simulated = true;
         rb.linearVelocity = Vector2.zero;
         rb.angularVelocity = 0f;
-
-        // Restore colliders
         foreach (Collider2D col in playerColliders)
-        {
-            col.enabled = true;
-        }
-
-        // Restore the normal character artwork
-        if (characterSprite != null)
-        {
-            characterSprite.enabled = true;
-        }
-
-        // Reset movement state
+            if (col != null) col.enabled = true;
+        if (characterSprite != null) characterSprite.enabled = true;
         currentSpeed = 0f;
-        moveInput = 0f;
-        jumpRequested = false;
-
         stunned = false;
+        recoveryRoutine = null;
     }
-
-
-
-    // PLAYER SPAWNING
-
-    public void SpawnAt(Vector3 groundPosition)
-    {
-        // Calculate the distance between the player's origin and feet.
-        Vector3 feetOffset = transform.position - groundCheck.position;
-
-        // Position the player so their feet match the spawn position.
-        transform.position = groundPosition + feetOffset;
-
-        // Remove any movement carried over from the previous position.
-        rb.linearVelocity = Vector2.zero;
-    }
-
-
-    // PLAYER TRIGGERS
-
-    private void OnTriggerEnter2D(Collider2D other)
-    {
-        int objectLayer = other.gameObject.layer;
-
-        int deathZoneLayer = LayerMask.NameToLayer("DeathZone");
-        int enemyLayer = LayerMask.NameToLayer("Enemy");
-        int checkpointLayer = LayerMask.NameToLayer("Checkpoint");
-
-        Debug.Log("Player entered trigger: " + other.name +
-                  " | Layer: " + LayerMask.LayerToName(objectLayer));
-
-        // DEATH ZONES AND ENEMIES
-
-        if (objectLayer == deathZoneLayer || objectLayer == enemyLayer)
-        {
-            Debug.Log("Deadly trigger detected!");
-            Die();
-            return;
-        }
-
-        // CHECKPOINTS
-
-        if (objectLayer == checkpointLayer)
-        {
-            Debug.Log("Checkpoint layer detected: " + other.name);
-
-            Checkpoint checkpoint = other.GetComponentInParent<Checkpoint>();
-
-            if (checkpoint != null)
-            {
-                Debug.Log("Checkpoint parent found: " + checkpoint.name);
-                checkpoint.ActivateCheckpoint(other);
-            }
-            else
-            {
-                Debug.LogWarning("Checkpoint trigger has no Checkpoint parent!");
-            }
-        }
-    }
-
-
-    // PLAYER DEATH
-
-    public void Die()
-    {
-        if (isDead) return;
-
-        isDead = true;
-
-        Debug.Log("Shortstuff has died!");
-
-        // Tell the GameManager to begin the respawn process.
-        if (GameManager.Instance != null)
-        {
-            GameManager.Instance.PlayerDied();
-        }
-        else
-        {
-            Debug.LogError("No GameManager found!");
-        }
-
-        // Remove the player immediately.
-        Destroy(gameObject);
-    }
-
-
-    // GIZMOS AND DEBUGS
 
     private void OnDrawGizmosSelected()
     {
         if (groundCheck == null) return;
-
         Gizmos.color = Color.green;
-
-        Gizmos.DrawWireSphere(
-            groundCheck.position,
-            groundCheckRadius
-        );
+        Gizmos.DrawWireSphere(groundCheck.position, groundCheckRadius);
     }
 }

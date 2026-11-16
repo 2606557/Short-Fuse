@@ -3,8 +3,8 @@ guid: f3b24038af3533b428e9b46b47a460db
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -1483665779731714255
-    second: Bomb_0
+      213: 1589276796324118985
+    second: Bomb 1_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -100,7 +100,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Bomb_0
+      name: Bomb 1_0
       rect:
         serializedVersion: 2
         x: 64
@@ -115,8 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 13f20b985d5f86be0800000000000000
-      internalID: -1483665779731714255
+      spriteID: 9c18bae63de3e0610800000000000000
+      internalID: 1589276796324118985
       vertices: []
       indices: 
       edges: []
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Bomb_0: -1483665779731714255
+      Bomb 1_0: 1589276796324118985
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

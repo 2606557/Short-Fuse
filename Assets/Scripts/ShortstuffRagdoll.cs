@@ -1,44 +1,33 @@
 using UnityEngine;
 
+// Attach to the ROOT of a ragdoll prefab. The root has no Rigidbody2D.
+// Child parts (torso, head, legs) have Rigidbody2D + Collider2D and are joined with HingeJoint2D.
 public class ShortstuffRagdoll : MonoBehaviour
 {
-    // References
     [SerializeField] private Rigidbody2D torso;
     [SerializeField] private Rigidbody2D[] bodyParts;
-
     [SerializeField] private float blastSpin = 250f;
 
-    // Public variables
-    public Vector2 TorsoPosition => torso.position;
-    public float TorsoSpeed => torso.linearVelocity.magnitude;
-
-    private void Start()
-    {
-        // Activate(Vector2.zero, new Vector2(-25f, 50f), torso.transform.position + new Vector3(50f, 10f, 0f));
-    }
+    public Vector2 TorsoPosition => torso != null ? torso.position : (Vector2)transform.position;
+    public float TorsoSpeed => torso != null ? torso.linearVelocity.magnitude : 0f;
 
     public void Activate(Vector2 initialVelocity, Vector2 explosionImpulse, Vector2 explosionOrigin)
     {
-        // Transfer the player's initial velocity
-        foreach (Rigidbody2D part in bodyParts)
+        if (torso == null)
         {
-            if (part != null)
-            {
-                part.linearVelocity = initialVelocity;
-            }
+            Debug.LogError("Ragdoll prefab: assign Torso.");
+            return;
         }
 
-        // Apply the explosion force to the chest
+        foreach (Rigidbody2D part in bodyParts)
+        {
+            if (part == null) continue;
+            part.linearVelocity = initialVelocity;
+        }
+
+        // Impulse on the torso, and spin on the connected parts.
         torso.AddForce(explosionImpulse, ForceMode2D.Impulse);
-
-        // Chose a spin direction based on the explosion position
-        float spinDirection = torso.position.x >= explosionOrigin.x
-            ? -1f
-            : 1f;
-
-        // Rotate the chest
-        torso.angularVelocity = spinDirection * blastSpin;
-
+        float spinSign = torso.position.x >= explosionOrigin.x ? -1f : 1f;
+        torso.angularVelocity = spinSign * blastSpin;
     }
-
 }
