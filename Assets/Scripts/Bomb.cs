@@ -1,14 +1,14 @@
-using UnityEngine;
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine;
 
-// WEEK 3B/C REFERENCE VERSION based on the existing Short Fuse bomb.
-// Keep exactly ONE Bomb.cs in Assets.
+[RequireComponent(typeof(Rigidbody2D), typeof(Collider2D))]
 public class Bomb : MonoBehaviour
 {
     private SpriteRenderer spriteRenderer;
     private AudioSource audioSource;
-    private bool hasExploded;
+    private Rigidbody2D rb;
 
     [Range(0.5f, 10f)] [SerializeField] private float fuseTime = 4f;
     [Range(0.5f, 10f)] [SerializeField] private float explosionRadius = 3f;
@@ -16,13 +16,17 @@ public class Bomb : MonoBehaviour
     [SerializeField] private AudioClip fuseBeep;
     [SerializeField] private AudioClip explosionSound;
     [SerializeField] private Color flashColor = Color.white;
-    private Color originalColor;
     [Range(0.05f, 1f)] [SerializeField] private float slowFlashInterval = 0.4f;
     [Range(0.05f, 1f)] [SerializeField] private float fastFlashInterval = 0.15f;
     [Range(0.01f, 0.5f)] [SerializeField] private float imminentFlashInterval = 0.05f;
 
+    private Color originalColor = Color.white;
+    private bool hasExploded;
+    public event Action<Bomb> Exploded;
+
     private void Awake()
     {
+        rb = GetComponent<Rigidbody2D>();
         spriteRenderer = GetComponent<SpriteRenderer>();
         audioSource = GetComponent<AudioSource>();
         if (spriteRenderer != null) originalColor = spriteRenderer.color;
@@ -31,80 +35,84 @@ public class Bomb : MonoBehaviour
     private void Start()
     {
         StartCoroutine(FlashFuse());
-        Invoke(nameof(Explode), fuseTime);
+        Invoke(nameof(Detonate), fuseTime);
     }
 
-    // WEEK 3B: Allow a player command to detonate before the fuse completes.
+    // One fixed impulse from the player; the Rigidbody2D handles the trajectory.
+    public void Launch(Vector2 impulse, float spinDegreesPerSecond)
+    {
+        rb.AddForce(impulse, ForceMode2D.Impulse);
+        rb.angularVelocity = spinDegreesPerSecond;
+    }
+
     public void Detonate()
     {
+        if (hasExploded) return;
+        hasExploded = true;
+        CancelInvoke(nameof(Detonate));
+        StopAllCoroutines();
+        Exploded?.Invoke(this);
         Explode();
     }
 
     private void Explode()
     {
-        if (hasExploded) return;
-        hasExploded = true;
-        CancelInvoke(nameof(Explode));
-        StopAllCoroutines();
-
         Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, explosionRadius);
-        HashSet<Rigidbody2D> affectedBodies = new HashSet<Rigidbody2D>();
-        HashSet<ShortstuffRagdoll> affectedPlayers = new HashSet<ShortstuffRagdoll>();
-        HashSet<Destructible> destroyedObjects = new HashSet<Destructible>();
+        HashSet<Rigidbody2D> processedBodies = new HashSet<Rigidbody2D>();
+        HashSet<Destructible> processedDestructibles = new HashSet<Destructible>();
+        HashSet<PlayerController> processedPlayers = new HashSet<PlayerController>();
 
         foreach (Collider2D hit in hits)
         {
-            // WEEK 2: Preserve the destructible-object interaction.
+            if (hit == null) continue;
+
             Destructible destructible = hit.GetComponentInParent<Destructible>();
-            if (destructible != null && destroyedObjects.Add(destructible))
+            if (destructible != null && processedDestructibles.Add(destructible))
                 destructible.DestroyObject();
 
-            // WEEK 3C: The intact player becomes a ragdoll INSTEAD of
-            // receiving the old rigidbody impulse (no double-launch).
-            ShortstuffRagdoll ragdoll = hit.GetComponentInParent<ShortstuffRagdoll>();
-            if (ragdoll != null)
+            PlayerController player = hit.GetComponentInParent<PlayerController>();
+            if (player != null)
             {
-                if (affectedPlayers.Add(ragdoll))
-                    ragdoll.ReceiveExplosion(transform.position, explosionForce);
+                if (processedPlayers.Add(player) && !player.IsStunned)
+                {
+                    Rigidbody2D playerBody = player.GetComponent<Rigidbody2D>();
+                    Vector2 centre = playerBody != null ? playerBody.worldCenterOfMass : (Vector2)player.transform.position;
+                    Vector2 direction = centre - (Vector2)transform.position;
+                    if (direction.sqrMagnitude < 0.0001f) direction = Vector2.up;
+                    player.ReceiveExplosion(transform.position, direction.normalized * explosionForce);
+                }
                 continue;
             }
 
-            // Other dynamic bodies, including already-active ragdoll parts.
-            Rigidbody2D targetRB = hit.attachedRigidbody;
-            if (targetRB == null || targetRB.bodyType != RigidbodyType2D.Dynamic)
+            Rigidbody2D target = hit.attachedRigidbody;
+            if (target == null || target == rb || target.bodyType != RigidbodyType2D.Dynamic)
                 continue;
-            if (!targetRB.simulated || !affectedBodies.Add(targetRB))
-                continue;
+            if (!processedBodies.Add(target)) continue;
 
-            Vector2 direction = targetRB.worldCenterOfMass - (Vector2)transform.position;
-            direction = direction.sqrMagnitude < 0.001f ? Vector2.up : direction.normalized;
-            targetRB.AddForce(direction * explosionForce, ForceMode2D.Impulse);
+            Vector2 forceDirection = target.worldCenterOfMass - (Vector2)transform.position;
+            if (forceDirection.sqrMagnitude < 0.0001f) forceDirection = Vector2.up;
+            target.AddForce(forceDirection.normalized * explosionForce, ForceMode2D.Impulse);
         }
 
-        if (explosionSound != null && Camera.main != null)
+        if (explosionSound != null)
             AudioSource.PlayClipAtPoint(explosionSound, Camera.main.transform.position, 0.8f);
         Destroy(gameObject);
     }
 
     private IEnumerator FlashFuse()
     {
-        if (spriteRenderer == null) yield break;
-
-        float elapsedTime = 0f;
-        while (elapsedTime < fuseTime)
+        float elapsed = 0f;
+        while (elapsed < fuseTime && !hasExploded)
         {
-            float progress = elapsedTime / fuseTime;
-            float flashInterval = slowFlashInterval;
-            if (progress >= 0.9f) flashInterval = imminentFlashInterval;
-            else if (progress >= 0.5f) flashInterval = fastFlashInterval;
-
-            spriteRenderer.color = flashColor;
-            if (audioSource != null && fuseBeep != null)
-                audioSource.PlayOneShot(fuseBeep);
-            yield return new WaitForSeconds(flashInterval);
-            spriteRenderer.color = originalColor;
-            yield return new WaitForSeconds(flashInterval);
-            elapsedTime += flashInterval * 2f;
+            float progress = elapsed / fuseTime;
+            float interval = progress >= 0.9f ? imminentFlashInterval :
+                             progress >= 0.5f ? fastFlashInterval : slowFlashInterval;
+            if (spriteRenderer != null) spriteRenderer.color = flashColor;
+            if (audioSource != null && fuseBeep != null) audioSource.PlayOneShot(fuseBeep);
+            yield return new WaitForSeconds(interval);
+            if (spriteRenderer != null) spriteRenderer.color = originalColor;
+            yield return new WaitForSeconds(interval);
+            elapsed += interval * 2f;
         }
     }
 
