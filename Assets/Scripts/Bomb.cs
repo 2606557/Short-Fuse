@@ -86,11 +86,28 @@ public class Bomb : MonoBehaviour
 
             // therefore all thats left is rbs that are dynamic (like the player etc)
 
-            // calculate the explosion direction
-            Vector2 direction = (targetRB.worldCenterOfMass - (Vector2)transform.position).normalized;
+            // calculate explosion direction
+            Vector2 direction = targetRB.worldCenterOfMass - (Vector2)transform.position;
 
-            // calculate the actual force based on direction and distance
-            targetRB.AddForce(direction * explosionForce, ForceMode2D.Impulse);
+            if (direction.sqrMagnitude < 0.0001f)
+            {
+                direction = Vector2.up;
+            }
+
+            Vector2 impulse = direction.normalized * explosionForce;
+
+            // check whether this RigidBody2D belongs to the player
+            PlayerController player = targetRB.GetComponent<PlayerController>();
+
+            if (player != null)
+            {
+                player.RecieveExplosion(transform.position, impulse);
+            }
+            else
+            {
+                // ordinary physics object still recieve on impulse
+                targetRB.AddForce(impulse, ForceMode2D.Impulse);
+            }
 
             Debug.Log("Explosion hit: " + hit.name);
         }

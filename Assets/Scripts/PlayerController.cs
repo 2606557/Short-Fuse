@@ -3,6 +3,8 @@ using UnityEngine.InputSystem;
 
 using TMPro;
 
+using System.Collections;
+
 public class PlayerController : MonoBehaviour
 {
     // REFERENCES
@@ -17,10 +19,24 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private GameObject bombPrefab;
     [SerializeField] private Transform bombSpawnPoint;
 
+    // RAGDOLL REFERENCES
+    [SerializeField] private Ragdoll ragdollPrefab;
+
+    // STUN SETTINGS
+    [SerializeField] private float minimumStunTime = 1.5f;
+    [SerializeField] private float maximumStunTime = 4f;
+    [SerializeField] private float recoveryCheckRadius = 0.22f;
+    [SerializeField] private float recoveryHeight = 0.15f;
+
     // PLAYER INPUT
     private float moveInput;
     private bool jumpRequested = false;
     private bool grounded;
+
+    private Ragdoll activeRagdoll;
+    private bool stunned;
+    private Collider2D[] playerColliders;
+    private SpriteRenderer characterSprite;
 
     // MOVEMENT SETTINGS
     [Range(1f, 12f)]
@@ -45,6 +61,10 @@ public class PlayerController : MonoBehaviour
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
+
+        playerColliders = GetComponentsInChildren<Collider2D>();
+
+        characterSprite = GetComponentInChildren<SpriteRenderer>();
 
         currentBombs = maxBombs;
     }
@@ -83,6 +103,7 @@ public class PlayerController : MonoBehaviour
     // INPUT
     private void Update()
     {
+        if (stunned) return;
         moveInput = moveAction.action.ReadValue<Vector2>().x;
     }
 
@@ -151,6 +172,8 @@ public class PlayerController : MonoBehaviour
     // BOMBS
     private void OnBomb(InputAction.CallbackContext context)
     {
+        if (stunned) return;
+
         PlaceBomb();
     }
 
@@ -197,7 +220,49 @@ public class PlayerController : MonoBehaviour
     }
 
 
+    public void RecieveExplosion(Vector2 explosionOrigin, Vector2 impulse)
+    {
+        // ignore further explosions while already stunned
+        if (stunned) return;
 
+        stunned = true;
+
+        // remember our velocity before disabling physics
+        Vector2 previousVelocity = rb.linearVelocity;
+
+        // create the ragdoll
+        Ragdoll ragdoll = Instantiate(
+            ragdollPrefab,
+            transform.position,
+            Quaternion.identity
+        );
+
+        // Transfer velocity and explosion force
+        ragdoll.Activate(
+            rb.linearVelocity,
+            impulse,
+            explosionOrigin
+        );
+
+        // hide the normal character 
+        if (characterSprite != null)
+        {
+            characterSprite.enabled = false;
+        }
+
+        // disable player colliders
+        foreach (Collider2D col in playerColliders)
+        {
+            col.enabled = false;
+        }
+
+        // stop normal player physics
+        rb.simulated = false;
+
+        // clear pending movement
+        moveInput = 0f;
+        jumpRequested = false;
+    }
 
 
     // GIZMOS AND DEBUGS
